@@ -1,0 +1,40 @@
+service: order-service
+
+plugins:
+  - serverless-pseudo-parameters
+
+provider:
+  name: aws
+  region: eu-north-1
+  runtime: nodejs12.x
+  iamRoleStatements:
+    - Effect: Allow
+      Action: events:PutEvents
+      Resource: ${self:custom.eventBusArn}
+
+custom:
+  eventBusArn: arn:aws:events:${self:provider.region}:#{AWS::AccountId}:event-bus/orders
+
+functions:
+  createOrder:
+    handler: createOrder.handler
+  orderCreated:
+    handler: orderCreated.handler
+    events:
+      - eventBridge:
+          eventBus: ${self:custom.eventBusArn}
+          pattern:
+            source:
+              - elk.orders
+
+resources:
+  Resources:
+    EventBus:
+      Type: AWS::Events::EventBus
+      Properties:
+        Name: orders
+    EventArchive:
+      Type: AWS::Events::Archive
+      Properties:
+        ArchiveName: orders-archive
+        SourceArn: ${self:custom.eventBusArn}
